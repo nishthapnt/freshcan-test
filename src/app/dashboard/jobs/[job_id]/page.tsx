@@ -1691,7 +1691,7 @@ export default function JobDetailPage() {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        type: 'video_approve_both',
+        type: 'video_approve',
         payload: {
           job_id,
           topic:           job.topic,

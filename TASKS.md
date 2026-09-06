@@ -9,6 +9,10 @@
 - [ ] End-to-end test: submit form → n8n webhook fires → callback received → draft appears
 - [ ] Test social posting flow with real platform credentials
 - [ ] Deploy to Vercel (or chosen host)
+- [ ] Import `Fresh-CAN — Combined Content Pipeline.json` into n8n, review wiring (especially the new `Switch` node), and activate it
+- [ ] Confirm `N8N_WEBHOOK_URL` in `.env.local`/Vercel matches the combined workflow's actual activated webhook path
+- [ ] Confirm `content_drafts`/`generated_content` have a `language` column with a `job_id,content_type,language` unique constraint (code now assumes this everywhere)
+- [ ] End-to-end test the combined workflow: EN video, FR video, BOTH video, blog (each language), image_post, social post
 
 ---
 
@@ -60,7 +64,8 @@
 - [x] n8n webhooks fire on form submit
 - [x] n8n callback API receives events and updates DB
 - [x] Supabase Realtime subscribed on job detail page
-- [ ] Verify n8n webhook URLs are live and responding
+- [x] Consolidated 6 n8n workflows into one combined workflow, all content types report via `/api/webhooks/n8n-callback` (Session 5, 2026-09-06)
+- [ ] Import combined workflow into n8n, verify webhook URL is live and responding
 - [ ] Test social platform posting via n8n
 
 ### 🧪 Testing

@@ -55,6 +55,7 @@ export interface ContentDraft {
   id: string
   job_id: string
   content_type: ContentType
+  language: string
   draft_data: Record<string, unknown>
   is_approved: boolean
   status: JobStatus
@@ -66,6 +67,7 @@ export interface GeneratedContent {
   id: string
   job_id: string
   content_type: ContentType
+  language: string
   file_url: string | null
   thumbnail_url: string | null
   output_data: Record<string, unknown> | null
@@ -125,6 +127,7 @@ export interface N8nCallbackDraftReady {
   event: 'draft_ready'
   data: {
     draft_data: Record<string, unknown>
+    language?: string
   }
 }
 

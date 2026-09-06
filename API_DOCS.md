@@ -106,14 +106,17 @@ Status: 400 / 404 / 500
 
 ## n8n Outbound Webhooks (called by this app, not routes)
 
-These are fired from the frontend — documented here for reference.
+All requests go through `POST /api/n8n/trigger` (`{ type, payload }`), which
+forwards to the single `N8N_WEBHOOK_URL` combined workflow with `type` merged
+into the body — the workflow's own Switch node routes internally. `type` is
+one of `video | video_approve | blog | image_questions | image_post | social`.
 
-### New Content Submission
-**URL:** Depends on content type (see CLAUDE.md)
+### New Content Submission (`type: "video" | "blog" | "image_post"`)
 **Method:** POST
 **Payload:**
 ```json
 {
+  "type": "video | blog | image_post",
   "job_id": "uuid",
   "topic": "string",
   "keywords": "string",
@@ -125,25 +128,48 @@ These are fired from the frontend — documented here for reference.
 }
 ```
 
-### Draft Approved → Re-generate
-**URL:** Same webhook URLs as above
+### Video Approved → Render (`type: "video_approve"`)
+**Method:** POST
+**Description:** Handles single-language (EN or FR) and BOTH-language jobs in one branch — send `language` plus either plain `script_parts`/`full_script`, or `en_script_parts`/`en_full_script` + `fr_script_parts`/`fr_full_script` when `language` is `BOTH`.
+**Payload:**
+```json
+{
+  "type": "video_approve",
+  "job_id": "uuid",
+  "language": "EN | FR | BOTH",
+  "script_parts": [],
+  "full_script": "string",
+  "en_script_parts": [], "en_full_script": "string",
+  "fr_script_parts": [], "fr_full_script": "string",
+  "script_config": {},
+  "topic": "string",
+  "category": "string",
+  "script_type": "string",
+  "video_duration": "string"
+}
+```
+
+### Draft Approved → Re-generate (`type: "video" | "image_post" | "blog"`)
+**URL:** Same combined webhook as above (fired by `POST /api/jobs/[jobId]/regenerate`)
 **Method:** POST
 **Payload:**
 ```json
 {
+  "type": "video | image_post | blog",
   "job_id": "uuid",
   "content_type": "video | image_post | blog",
-  "draft_data": {},
+  "extra_instructions": "string | null",
+  "regenerate": true,
   "brand": "Fresh-CAN"
 }
 ```
 
-### Social Post Approved
-**URL:** `https://n8n.srv1712072.hstgr.cloud/webhook/social-post`
+### Social Post Approved (`type: "social"`)
 **Method:** POST
 **Payload:**
 ```json
 {
+  "type": "social",
   "job_id": "uuid",
   "social_post_id": "uuid",
   "content_type": "video | image_post | blog",
@@ -163,3 +189,4 @@ These are fired from the frontend — documented here for reference.
 | 2026-06-15 | Created | POST /api/webhooks/n8n-callback |
 | 2026-07-17 | Created | POST /api/auth/login |
 | 2026-07-17 | Created | POST /api/auth/logout |
+| 2026-09-06 | Consolidated 8 n8n webhook URLs into 1 combined workflow (`N8N_WEBHOOK_URL`, routed by `type`) | POST /api/n8n/trigger |

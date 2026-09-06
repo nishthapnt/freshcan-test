@@ -141,8 +141,8 @@ export async function POST(req: NextRequest) {
           { status: 400 },
         )
       }
-      const { draft_data } = data as { draft_data: Record<string, unknown> }
-      await upsertDraftFromCallback(job_id, content_type, draft_data)
+      const { draft_data, language } = data as { draft_data: Record<string, unknown>; language?: string }
+      await upsertDraftFromCallback(job_id, content_type, draft_data, language)
       await updateJobStatus(job_id, 'draft_ready')
 
     } else if (event === 'generation_complete') {

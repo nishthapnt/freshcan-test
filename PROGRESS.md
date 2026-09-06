@@ -162,3 +162,41 @@
 **⭐ Pick Up Next Session**
 - Update `CLAUDE.md` / `API_DOCS.md` "Auth Method" if a real user-based auth system replaces this later
 - Consider rate-limiting `/api/auth/login` if this is ever exposed beyond trusted internal users
+
+---
+
+### Session 5 — 2026-09-06
+**Developer:** Pri
+**Tool:** ✅ Claude Code CLI
+
+**✅ Completed**
+- Merged all 6 n8n workflows (`Antigravity — Video Draft Generator`, `Antigravity — Video Generator (After Approval)`, `Video Generator — Both`, `fresh-can Blog-post`, `Fresh-CAN_Image_Post_v7_direct_to_kie`, `FC — Social Post`) into one combined workflow: `/home/nishtha/Downloads/n8n-fc/Fresh-CAN — Combined Content Pipeline.json`
+  - Single shared webhook entry (`freshcan-content`) with a `Verify Secret` gate + `Switch` node routing internally on the `type` field, replacing 8 separate webhook URLs
+  - Collapsed `video_approve` + `video_approve_both` into one language-aware branch (`IF — Run Secondary Language?` gate), based on the more complete "Both" workflow (keeps its character-reference-image step); removes the near-duplicate render pipeline
+  - Standardized all branches on reporting results back via `POST /api/webhooks/n8n-callback` instead of writing directly to Supabase with a hardcoded JWT (video draft/approve, image_post now report via callback; social already did)
+  - Fixed latent bugs found during research: blog now honors the `language` field in its AI prompt (was always English); image_post's kie.ai polling loop now has a 10-retry cap + placeholder fallback (was unbounded); secret verification now happens once at the shared entry gate (blog/image previously never checked it)
+  - Script that performed the merge (BFS-based active-subgraph extraction, collision-safe node renaming, connection rewiring) is not checked in — one-off, lives in the session's scratchpad
+- Rewired the app to call the single combined webhook instead of 8 separate ones:
+  - `src/app/api/n8n/trigger/route.ts` — collapsed `WEBHOOK_URLS` map to one `N8N_WEBHOOK_URL`; dropped dead `image_approve`/`blog_approve` types; removed the bespoke synchronous blog-response-parsing block (blog is now fire-and-forget like the others, reporting via callback)
+  - `src/app/dashboard/jobs/[job_id]/page.tsx` — `handleVideoApprove`'s BOTH-language branch now sends `type: 'video_approve'` (was `'video_approve_both'`)
+  - `src/services/contentService.ts` — `upsertDraftFromCallback` now accepts/uses `language`, upserting on `job_id,content_type,language` (was `job_id,content_type` with no language column set — could let BOTH-language video drafts silently overwrite each other)
+  - `src/app/api/jobs/[jobId]/regenerate/route.ts`, `src/app/api/social/post/route.ts` — point at `N8N_WEBHOOK_URL`, now send a `type` field for the workflow's Switch to route on
+  - Deleted `src/services/webhookService.ts` (dead code — unused function, referenced a `NEXT_PUBLIC_N8N_VIDEO_APPROVE_WEBHOOK` var that didn't exist)
+  - `src/types/content.ts` — added the missing `language` field to `ContentDraft`/`GeneratedContent` (code already read/filtered on it everywhere; the types just hadn't caught up)
+  - `.env.local` — replaced 8 `N8N_*_WEBHOOK` vars with one `N8N_WEBHOOK_URL`
+- `npx tsc --noEmit` passes clean
+
+**🐛 Bugs Found**
+- `content_drafts` was being upserted with two different, inconsistent conflict targets across the codebase — fixed as part of this work (see above)
+- Blog workflow never read `language`, always generated English — fixed in the merged workflow
+- Image-post's kie.ai polling loop had no retry cap or failure handling — fixed in the merged workflow
+
+**💡 Decisions Made**
+- Standardized on callback-based reporting (n8n → `/api/webhooks/n8n-callback`) for every content type, rather than n8n writing directly to Supabase — removes hardcoded JWTs from the workflow file and centralizes DB writes in `contentService.ts`
+- Collapsed the two video-approval workflows into one language-aware branch rather than keeping them separate — real duplicate logic, not just a URL-consolidation exercise
+
+**⭐ Pick Up Next Session**
+- Import `Fresh-CAN — Combined Content Pipeline.json` into n8n, review the wiring visually (the hand-authored `Switch` node in particular — no source workflow used one, so there was no example to crib from), and activate it
+- Update `N8N_WEBHOOK_URL` in `.env.local` / Vercel once the combined workflow's webhook path is confirmed live
+- Test sequence once imported: EN video job, FR video job, BOTH video job, blog in each language, image_post (confirm retry-cap doesn't fire early), social post
+- Confirm `content_drafts` / `generated_content` actually have a `language` column with the constraint the new code assumes (code has used it in several places already, but worth a direct check)

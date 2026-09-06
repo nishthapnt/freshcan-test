@@ -31,7 +31,7 @@
 | **State** | React hooks + Supabase Realtime | realtime on job detail page |
 | **Database** | Supabase (PostgreSQL) | project: `jbrktjnscnzmhwupojiu` |
 | **API** | Next.js API Routes (REST) | |
-| **Automation** | n8n webhooks | 3 webhook URLs |
+| **Automation** | n8n webhooks | 1 combined webhook, routed by `type` |
 | **Auth** | Fixed ID/password, HMAC-signed session cookie | `src/proxy.ts` gates all routes; login at `/login` |
 
 ---
@@ -78,9 +78,8 @@ src/
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://jbrktjnscnzmhwupojiu.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<from Supabase → Settings → API>
-N8N_VIDEO_WEBHOOK=https://n8n.srv1712072.hstgr.cloud/webhook/video-genration
-N8N_BLOG_WEBHOOK=https://n8n.srv1712072.hstgr.cloud/webhook/blog-post
-N8N_IMAGE_WEBHOOK=https://n8n.srv1712072.hstgr.cloud/webhook/image-post
+N8N_WEBHOOK_URL=https://n8n.srv1712072.hstgr.cloud/webhook/freshcan-content
+N8N_WEBHOOK_SECRET=<shared secret, checked both directions>
 ```
 
 ---
@@ -107,14 +106,26 @@ N8N_IMAGE_WEBHOOK=https://n8n.srv1712072.hstgr.cloud/webhook/image-post
 
 ---
 
-## 🌐 N8N WEBHOOK URLS
+## 🌐 N8N WEBHOOK
 
-| Type | URL |
-|------|-----|
-| Image Post | `https://n8n.srv1712072.hstgr.cloud/webhook/image-post` |
-| Video | `https://n8n.srv1712072.hstgr.cloud/webhook/video-genration` *(typo intentional)* |
-| Blog | `https://n8n.srv1712072.hstgr.cloud/webhook/blog-post` |
-| Callback (inbound) | `POST /api/webhooks/n8n-callback` |
+One combined workflow (`Fresh-CAN — Combined Content Pipeline`, source at
+`/home/nishtha/Downloads/n8n-fc/`) handles every content type. All requests
+go to `N8N_WEBHOOK_URL`; the workflow's own Switch node branches internally
+on the `type` field in the request body.
+
+| `type` | Purpose |
+|--------|---------|
+| `video` | Script draft generation (EN/FR/BOTH) |
+| `video_approve` | Post-approval render — single language or BOTH, driven by `language` |
+| `blog` | Blog post generation |
+| `image_questions` | Clarifying questions before image generation |
+| `image_post` | Image generation |
+| `social` | Posting to Instagram/Facebook/Twitter |
+
+| Direction | Endpoint |
+|-----------|----------|
+| Outbound (app → n8n) | `N8N_WEBHOOK_URL`, `x-n8n-secret` header |
+| Inbound (n8n → app) | `POST /api/webhooks/n8n-callback`, `Authorization: Bearer <N8N_WEBHOOK_SECRET>` |
 
 ---
 

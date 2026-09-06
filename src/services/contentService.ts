@@ -150,17 +150,19 @@ export async function upsertDraftFromCallback(
   jobId: string,
   contentType: ContentType,
   draftData: Record<string, unknown>,
+  language?: string,
 ): Promise<void> {
   const { error } = await supabase.from('content_drafts').upsert(
     {
       job_id: jobId,
       content_type: contentType,
+      language: language || 'EN',
       draft_data: draftData,
       is_approved: false,
       status: 'draft_ready',
       updated_at: new Date().toISOString(),
     },
-    { onConflict: 'job_id,content_type' },
+    { onConflict: 'job_id,content_type,language' },
   )
 
   if (error) throw new Error(error.message)

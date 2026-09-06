@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 
-const REGEN_WEBHOOKS: Record<string, string | undefined> = {
-  video:      process.env.N8N_VIDEO_WEBHOOK,
-  image_post: process.env.N8N_IMAGE_WEBHOOK,
-  blog:       process.env.N8N_BLOG_WEBHOOK,
-}
+const REGEN_CONTENT_TYPES = new Set(['video', 'image_post', 'blog'])
 
 interface VideoDraftData {
   script_type?: string
@@ -72,10 +68,11 @@ export async function POST(
     .update({ status: 'pending', updated_at: new Date().toISOString() })
     .eq('id', jobId)
 
-  const webhookUrl = REGEN_WEBHOOKS[content_type]
-  if (webhookUrl) {
+  const webhookUrl = process.env.N8N_WEBHOOK_URL
+  if (webhookUrl && REGEN_CONTENT_TYPES.has(content_type)) {
     const videoData = (currentDraft?.draft_data as VideoDraftData | undefined)
     const payload: Record<string, unknown> = {
+      type:               content_type,
       job_id:             jobId,
       topic:              job.topic,
       keywords:           job.keywords ?? '',

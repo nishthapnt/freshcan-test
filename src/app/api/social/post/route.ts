@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
   try {
     await upsertSocialPost(job_id, content_type, caption, hashtags ?? [], platforms)
 
-    const webhookUrl = process.env.N8N_SOCIAL_WEBHOOK
+    const webhookUrl = process.env.N8N_WEBHOOK_URL
     if (!webhookUrl) {
       return NextResponse.json({ error: 'Social posting is not configured yet.' }, { status: 503 })
     }
@@ -44,6 +44,7 @@ export async function POST(req: NextRequest) {
           'x-n8n-secret': secret,
         },
         body: JSON.stringify({
+          type: 'social',
           job_id,
           content_type,
           platforms,
