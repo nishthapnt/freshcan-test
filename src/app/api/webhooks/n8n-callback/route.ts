@@ -59,6 +59,7 @@ export async function POST(req: NextRequest) {
           display:       vc.display,
           completed_at:  vc.completed_at,
         },
+        vc.video.language,
       )
 
       // Only mark the whole job "ready" once every language that was
@@ -161,6 +162,7 @@ export async function POST(req: NextRequest) {
         genData.file_url as string,
         typeof genData.thumbnail_url === 'string' ? genData.thumbnail_url : undefined,
         (genData.output_data as Record<string, unknown>) ?? {},
+        typeof genData.language === 'string' ? genData.language : undefined,
       )
 
       // Fix #3 — capture and log the error from jobFull query

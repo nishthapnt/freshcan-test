@@ -176,16 +176,18 @@ export async function upsertGeneratedContent(
   fileUrl: string,
   thumbnailUrl: string | undefined,
   outputData: Record<string, unknown>,
+  language?: string,
 ): Promise<void> {
   const { error } = await supabase.from('generated_content').upsert(
     {
       job_id: jobId,
       content_type: contentType,
+      language: language || 'EN',
       file_url: fileUrl,
       thumbnail_url: thumbnailUrl ?? null,
       output_data: outputData,
     },
-    { onConflict: 'job_id,content_type' },
+    { onConflict: 'job_id,content_type,language' },
   )
 
   if (error) throw new Error(error.message)

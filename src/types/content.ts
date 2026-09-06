@@ -139,6 +139,7 @@ export interface N8nCallbackGenerationComplete {
     file_url: string
     thumbnail_url?: string
     output_data: Record<string, unknown>
+    language?: string
   }
 }
 
