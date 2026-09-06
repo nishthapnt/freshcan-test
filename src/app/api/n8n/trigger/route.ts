@@ -40,19 +40,33 @@ export async function POST(req: NextRequest) {
 
   // Fire-and-forget generation types: results come back via /api/webhooks/n8n-callback.
   const GENERATION_TYPES: WebhookType[] = ['video', 'blog', 'image_post', 'social', 'video_approve']
+  // video_approve in particular can run for many minutes (TTS, transcription,
+  // image/video generation, ffmpeg render) before n8n's synchronous webhook
+  // response arrives. We don't wait for it — n8n already has the request and
+  // keeps executing regardless of whether we're still listening, and the real
+  // result comes back later via /api/webhooks/n8n-callback. Waiting anyway
+  // risks the *hosting platform's* own function execution limit killing this
+  // route before n8n ever responds, which used to surface as a false
+  // "failed to trigger" error to the user even though n8n kept going.
+  const GENERATION_TIMEOUT_MS = 8000
 
   try {
-    // No timeout for generation types — wait until n8n responds however long it takes.
-    // image_questions also gets no artificial timeout override beyond the default,
-    // since it's a quick text-only call, but it is NOT in GENERATION_TYPES because
-    // (unlike image_post/video/blog) the frontend needs to read its response body
-    // right away instead of treating it as fire-and-forget.
-    const n8nRes = await fetch(COMBINED_WEBHOOK_URL, {
-      method: 'POST',
-      headers: reqHeaders,
-      body: bodyStr,
-      ...(GENERATION_TYPES.includes(type) ? {} : { signal: AbortSignal.timeout(15000) }),
-    })
+    let n8nRes: Response | null = null
+    try {
+      n8nRes = await fetch(COMBINED_WEBHOOK_URL, {
+        method: 'POST',
+        headers: reqHeaders,
+        body: bodyStr,
+        signal: AbortSignal.timeout(GENERATION_TYPES.includes(type) ? GENERATION_TIMEOUT_MS : 15000),
+      })
+    } catch (fetchErr) {
+      const isTimeout = fetchErr instanceof Error && (fetchErr.name === 'AbortError' || fetchErr.name === 'TimeoutError')
+      if (GENERATION_TYPES.includes(type) && isTimeout) {
+        // Expected — n8n accepted the request and is still processing it.
+        return NextResponse.json({ success: true })
+      }
+      throw fetchErr
+    }
 
     // image_questions: unlike the other types, this one is NOT fire-and-forget
     // — n8n responds immediately with the actual question list, which the

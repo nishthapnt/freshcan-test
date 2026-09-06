@@ -19,9 +19,10 @@ export async function POST(
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const { content_type, extra_instructions } = body as {
+  const { content_type, extra_instructions, language: requestedLanguage } = body as {
     content_type: string
     extra_instructions?: string
+    language?: string
   }
 
   if (!content_type) {
@@ -38,20 +39,32 @@ export async function POST(
     return NextResponse.json({ error: 'Job not found' }, { status: 404 })
   }
 
-  // Load current draft to recover video settings
+  // The language actually being regenerated: whatever the caller says it's
+  // looking at, falling back to the job's overall language for callers that
+  // don't send one. For a BOTH job this must be a single language (EN/FR) —
+  // never blindly reuse job.language ('BOTH') here, or every regenerate would
+  // reset and re-trigger both languages instead of just the one being edited.
+  const language = requestedLanguage || (job.language === 'BOTH' ? 'EN' : job.language)
+
+  // Load current draft to recover video settings — scoped to this language,
+  // since a BOTH job has a separate row per language and an unscoped query
+  // here would error (more than one row) instead of picking the right one.
   const { data: currentDraft } = await supabase
     .from('content_drafts')
     .select('draft_data')
     .eq('job_id', jobId)
     .eq('content_type', content_type)
+    .eq('language', language)
     .maybeSingle()
 
-  // Reset draft to pending so UI shows "waiting" state
+  // Reset draft to pending so UI shows "waiting" state — only the language
+  // being regenerated, not every language's row for this content type.
   await supabase
     .from('content_drafts')
     .update({ status: 'pending', is_approved: false, updated_at: new Date().toISOString() })
     .eq('job_id', jobId)
     .eq('content_type', content_type)
+    .eq('language', language)
 
   // For image_post: reset generated_content so the old row isn't picked up by the poll
   if (content_type === 'image_post') {
@@ -60,6 +73,7 @@ export async function POST(
       .update({ status: 'pending', updated_at: new Date().toISOString() })
       .eq('job_id', jobId)
       .eq('content_type', 'image_post')
+      .eq('language', language)
   }
 
   // Reset job status to pending
@@ -78,7 +92,7 @@ export async function POST(
       keywords:           job.keywords ?? '',
       category:           job.category,
       target_audience:    job.target_audience,
-      language:           job.language,
+      language,
       brand:              'Fresh-CAN',
       content_type,
       extra_instructions: extra_instructions || null,

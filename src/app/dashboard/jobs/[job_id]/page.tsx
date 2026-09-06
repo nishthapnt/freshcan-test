@@ -1620,7 +1620,7 @@ export default function JobDetailPage() {
     const res = await fetch(`/api/jobs/${job_id}/regenerate`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ content_type: type, extra_instructions: instructions }),
+      body:    JSON.stringify({ content_type: type, extra_instructions: instructions, language: getEffectiveLanguage(type) }),
     })
 
     if (!res.ok) {
